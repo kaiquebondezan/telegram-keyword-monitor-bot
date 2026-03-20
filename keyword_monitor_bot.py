@@ -4,11 +4,11 @@ import threading
 import asyncio
 from flask import Flask
 from pymongo import MongoClient
+from pyrogram import Client, filters
 
+# --- CORREÇÃO PARA O PYTHON NO RENDER ---
 loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)
-
-from pyrogram import Client, filters
 
 # --- CREDENCIAIS ---
 API_ID = int(os.environ.get("API_ID", 0))
@@ -47,7 +47,7 @@ def salvar_palavras(palavras):
 
 PALAVRAS_CHAVE = carregar_palavras()
 
-# --- COMANDOS (No seu Grupo Privado) ---
+# --- COMANDOS ---
 @app_bot.on_message(filters.command("adicionar", prefixes=["/", ".", "!"]) & filters.chat(MEU_APP_ID))
 async def comando_adicionar(client, message):
     global PALAVRAS_CHAVE
@@ -80,8 +80,10 @@ async def comando_remover(client, message):
     else:
         await message.reply_text("Palavra não encontrada.")
 
-@app_bot.on_message(filters.command("listar", prefixes=["/", ".", "!"]) & filters.chat(MEU_APP_ID))
+# ⚠️ TRAVA DE GRUPO REMOVIDA AQUI PARA TESTE GERAL ⚠️
+@app_bot.on_message(filters.command("listar", prefixes=["/", ".", "!"]))
 async def comando_listar(client, message):
+    print(f"[LOG] Comando /listar recebido do chat ID: {message.chat.id}")
     if not PALAVRAS_CHAVE:
         await message.reply_text("Lista vazia.")
         return
@@ -102,14 +104,15 @@ async def verificar_mensagem(client, message):
             await client.send_message(MEU_APP_ID, alerta)
             break
 
-# --- ROTA WEB ---
+# --- ROTA WEB E INICIALIZAÇÃO ---
 @app_web.route('/')
-def home(): return "UserBot ativo com MongoDB!"
-
-def rodar_web():
-    porta = int(os.environ.get("PORT", 5000))
-    app_web.run(host="0.0.0.0", port=porta, use_reloader=False)
+def home(): 
+    return "UserBot ativo com MongoDB!"
 
 if __name__ == "__main__":
-    threading.Thread(target=rodar_web, daemon=True).start()
+    print("[LOG] Iniciando servidor Flask...")
+    porta = int(os.environ.get("PORT", 10000))
+    threading.Thread(target=lambda: app_web.run(host="0.0.0.0", port=porta, use_reloader=False), daemon=True).start()
+    
+    print("[LOG] Iniciando Pyrogram...")
     app_bot.run()
