@@ -94,7 +94,7 @@ BOT_RODANDO = False
 def carregar_palavras():
     global BANCO_DISPONIVEL
     
-    if not BANCO_DISPONIVEL or not colecao:
+    if not BANCO_DISPONIVEL or colecao is None:
         print("[⚠️  AVISO] Usando lista vazia (banco indisponível)")
         return []
     
@@ -104,7 +104,6 @@ def carregar_palavras():
             if dados:
                 return dados.get('palavras', [])
         
-        # Se não existe no banco, retorna lista vazia
         return []
     except Exception as e:
         print(f"[ERRO] Carregar palavras: {e}")
@@ -114,7 +113,7 @@ def carregar_palavras():
 def salvar_palavras(palavras):
     global BANCO_DISPONIVEL
     
-    if not BANCO_DISPONIVEL or not colecao:
+    if not BANCO_DISPONIVEL or colecao is None:
         print("[⚠️  AVISO] Banco indisponível - não salvo")
         return
     
@@ -271,6 +270,10 @@ def executar_bot():
     if not app_bot:
         print("[❌] Bot não configurado")
         return
+    
+    # Cria um novo event loop para esta thread
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     
     max_retries = 5
     retry_count = 0
