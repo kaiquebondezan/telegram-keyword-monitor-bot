@@ -3,41 +3,52 @@ import json
 import threading
 import asyncio
 from flask import Flask
+from pymongo import MongoClient
+
 loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)
 
 from pyrogram import Client, filters
 
 # --- CREDENCIAIS ---
-# O Render vai puxar essas informações das Variáveis de Ambiente
 API_ID = int(os.environ.get("API_ID", 0))
 API_HASH = os.environ.get("API_HASH")
 SESSION_STRING = os.environ.get("SESSION_STRING")
+MEU_APP_ID = int(os.environ.get("MEU_APP_ID", 0))
+MONGO_URI = os.environ.get("MONGO_URI")
 
-# Inicializa o servidor Web e o Cliente do Telegram
+# --- CONFIGURAÇÃO MONGODB ---
+mongo_client = MongoClient(MONGO_URI)
+db = mongo_client['monitor_bot_db']
+colecao = db['palavras_chave']
+
 app_web = Flask(__name__)
 app_bot = Client("meu_userbot", session_string=SESSION_STRING, api_id=API_ID, api_hash=API_HASH)
 
-ARQUIVO_PALAVRAS = 'palavras.json'
-
-# --- FUNÇÕES DE SALVAMENTO ---
+# --- FUNÇÕES DE BANCO DE DADOS ---
 def carregar_palavras():
-    if os.path.exists(ARQUIVO_PALAVRAS):
-        with open(ARQUIVO_PALAVRAS, 'r', encoding='utf-8') as f:
-            return json.load(f)
+    # Busca o documento único que guarda nossa lista
+    dados = colecao.find_one({"id": "lista_principal"})
+    if dados:
+        return dados['palavras']
+    
+    # Se não existir nada no banco, cria os padrões
     padrao = ['urgente', 'comprar', 'ajuda', 'orçamento']
     salvar_palavras(padrao)
     return padrao
 
 def salvar_palavras(palavras):
-    with open(ARQUIVO_PALAVRAS, 'w', encoding='utf-8') as f:
-        json.dump(palavras, f, ensure_ascii=False)
+    # Atualiza ou cria (upsert) a lista no MongoDB
+    colecao.update_one(
+        {"id": "lista_principal"},
+        {"$set": {"palavras": palavras}},
+        upsert=True
+    )
 
 PALAVRAS_CHAVE = carregar_palavras()
 
-# --- COMANDOS (Use nas suas Mensagens Salvas) ---
-# filters.me garante que o bot só obedeça se VOCÊ enviar o comando
-@app_bot.on_message(filters.command("adicionar", prefixes=["/", ".", "!"]) & filters.me)
+# --- COMANDOS (No seu Grupo Privado) ---
+@app_bot.on_message(filters.command("adicionar", prefixes=["/", ".", "!"]) & filters.chat(MEU_APP_ID))
 async def comando_adicionar(client, message):
     global PALAVRAS_CHAVE
     texto = message.text.split(" ", 1)
@@ -52,78 +63,53 @@ async def comando_adicionar(client, message):
     else:
         PALAVRAS_CHAVE.append(palavra)
         salvar_palavras(PALAVRAS_CHAVE)
-        await message.reply_text(f"✅ Palavra '{palavra}' adicionada com sucesso!")
+        await message.reply_text(f"✅ Palavra '{palavra}' salva no Banco de Dados!")
 
-@app_bot.on_message(filters.command("remover", prefixes=["/", ".", "!"]) & filters.me)
+@app_bot.on_message(filters.command("remover", prefixes=["/", ".", "!"]) & filters.chat(MEU_APP_ID))
 async def comando_remover(client, message):
     global PALAVRAS_CHAVE
     texto = message.text.split(" ", 1)
     
-    if len(texto) < 2:
-        return
+    if len(texto) < 2: return
     
     palavra = texto[1].strip().lower()
     if palavra in PALAVRAS_CHAVE:
         PALAVRAS_CHAVE.remove(palavra)
         salvar_palavras(PALAVRAS_CHAVE)
-        await message.reply_text(f"🗑️ Palavra '{palavra}' removida!")
+        await message.reply_text(f"🗑️ Palavra '{palavra}' removida do banco!")
     else:
-        await message.reply_text(f"A palavra '{palavra}' não foi encontrada.")
+        await message.reply_text("Palavra não encontrada.")
 
-@app_bot.on_message(filters.command("listar", prefixes=["/", ".", "!"]) & filters.me)
+@app_bot.on_message(filters.command("listar", prefixes=["/", ".", "!"]) & filters.chat(MEU_APP_ID))
 async def comando_listar(client, message):
     if not PALAVRAS_CHAVE:
-        await message.reply_text("Sua lista de palavras está vazia.")
+        await message.reply_text("Lista vazia.")
         return
-    
     lista_formatada = "\n".join([f"- {p}" for p in PALAVRAS_CHAVE])
-    await message.reply_text(f"📋 **Suas palavras-chave:**\n{lista_formatada}")
+    await message.reply_text(f"📋 **Palavras no MongoDB:**\n{lista_formatada}")
 
-# --- MONITORAMENTO DE GRUPOS E CANAIS ---
-# filters.group e filters.channel olham apenas para grupos e canais
-# ~filters.me faz ele ignorar mensagens que você mesmo enviou (evita loop)
-@app_bot.on_message((filters.group | filters.channel) & ~filters.me & filters.text)
+# --- MONITORAMENTO ---
+@app_bot.on_message((filters.group | filters.channel) & ~filters.me & ~filters.chat(MEU_APP_ID) & filters.text)
 async def verificar_mensagem(client, message):
     texto = message.text.lower()
-    
     for palavra in PALAVRAS_CHAVE:
         if palavra.lower() in texto:
-            chat_title = message.chat.title or "Chat Desconhecido"
-            user_name = message.from_user.first_name if message.from_user else "Anônimo/Canal"
+            chat_title = message.chat.title or "Chat"
+            user_name = message.from_user.first_name if message.from_user else "Anônimo"
+            link = f"\n🔗 [Ir para Mensagem](https://t.me/{message.chat.username}/{message.id})" if message.chat.username else ""
             
-            # Tenta gerar um link direto para a mensagem
-            link_msg = ""
-            if message.chat.username:
-                link_msg = f"\n🔗 [Ir para a Mensagem](https://t.me/{message.chat.username}/{message.id})"
-            elif message.link:
-                link_msg = f"\n🔗 [Ir para a Mensagem]({message.link})"
-
-            alerta = (
-                f"🚨 **Palavra detectada: '{palavra}'**\n\n"
-                f"📍 **Local:** {chat_title}\n"
-                f"👤 **Enviado por:** {user_name}\n"
-                f"💬 **Texto:** {message.text}"
-                f"{link_msg}"
-            )
-            
-            # Manda o alerta para as suas Mensagens Salvas ("me")
-            await client.send_message("me", alerta)
+            alerta = f"🚨 **'{palavra}' detectada!**\n\n📍 **{chat_title}**\n👤 **{user_name}**\n💬 {message.text}{link}"
+            await client.send_message(MEU_APP_ID, alerta)
             break
 
-# --- ROTA WEB (Anti-Sleep do Render) ---
+# --- ROTA WEB ---
 @app_web.route('/')
-def home():
-    return "O UserBot está rodando e lendo as mensagens!"
+def home(): return "UserBot ativo com MongoDB!"
 
 def rodar_web():
     porta = int(os.environ.get("PORT", 5000))
-    # use_reloader=False é vital aqui para não rodar dois bots e dar conflito
     app_web.run(host="0.0.0.0", port=porta, use_reloader=False)
 
 if __name__ == "__main__":
-    # Inicia o servidor web em paralelo
     threading.Thread(target=rodar_web, daemon=True).start()
-    
-    # Inicia o UserBot do Telegram
-    print("Iniciando o UserBot...")
     app_bot.run()
