@@ -274,17 +274,25 @@ async def iniciar_bot():
         await app_bot.start()
         BOT_RODANDO = True
         print("[✅] Bot conectado com sucesso!", flush=True)
+        print("[LOG] Bot aguardando mensagens...", flush=True)
         
-        # Mantém o bot rodando indefinidamente
-        await asyncio.sleep(float('inf'))
+        # Crucial: aguarda indefinidamente por mensagens
+        await app_bot.idle()
+        
     except Exception as e:
         print(f"[ERRO] Bot: {type(e).__name__}: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
         BOT_RODANDO = False
     finally:
         try:
-            await app_bot.stop()
-        except:
-            pass
+            if app_bot:
+                print("[LOG] Bot desconectando...", flush=True)
+                await app_bot.stop()
+        except Exception as e:
+            print(f"[ERRO] Ao desconectar: {e}", flush=True)
+        BOT_RODANDO = False
+        print("[❌] Bot desconectado", flush=True)
 
 def executar_bot():
     """Executa o bot em um novo event loop"""
