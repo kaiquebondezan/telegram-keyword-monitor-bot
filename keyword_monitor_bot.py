@@ -1,5 +1,4 @@
 import os
-import json
 import threading
 import asyncio
 import time
@@ -7,21 +6,12 @@ from flask import Flask, jsonify
 from pymongo import MongoClient
 from pymongo.errors import ServerSelectionTimeoutError
 
-# --- CONFIGURAÇÃO DE EVENT LOOP PARA RENDER ---
-try:
-    loop = asyncio.get_event_loop()
-except RuntimeError:
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
 from pyrogram import Client, filters
-# from pyrogram.errors import ConnectionError as PyrogramConnectionError
 
 # --- CREDENCIAIS ---
 API_ID = int(os.environ.get("API_ID", 0))
 API_HASH = os.environ.get("API_HASH")
 SESSION_STRING = os.environ.get("SESSION_STRING")
-MEU_APP_ID = int(os.environ.get("MEU_APP_ID", 0))
 MONGO_URI = os.environ.get("MONGO_URI")
 
 # --- LOCK PARA SEGURANÇA DE THREADS ---
@@ -31,41 +21,41 @@ keywords_lock = threading.Lock()
 # --- VALIDAÇÃO DE CREDENCIAIS ---
 print("[LOG] Validando credenciais...")
 CREDENCIAIS_OK = True
-if not API_ID or not API_HASH or not SESSION_STRING or not MEU_APP_ID:
-    print("[❌ ERRO] Alguma credencial do Telegram está vazia!")
+if not API_ID or not API_HASH or not SESSION_STRING:
+    print("[ERRO] Alguma credencial do Telegram está vazia!")
     print(f"  API_ID: {bool(API_ID)}")
     print(f"  API_HASH: {bool(API_HASH)}")
     print(f"  SESSION_STRING: {bool(SESSION_STRING)}")
-    print(f"  MEU_APP_ID: {MEU_APP_ID}")
     CREDENCIAIS_OK = False
 
 if not MONGO_URI:
-    print("[⚠️  AVISO] MONGO_URI não configurada!")
+    print("[AVISO] MONGO_URI não configurada!")
     CREDENCIAIS_OK = False
 
 # --- CONFIGURAÇÃO MONGODB ---
 mongo_client = None
 BANCO_DISPONIVEL = False
+colecao = None
 
 if MONGO_URI:
     try:
-        mongo_client = MongoClient(MONGO_URI, 
-                                  serverSelectionTimeoutMS=5000, 
-                                  connectTimeoutMS=5000,
-                                  retryWrites=False)
+        mongo_client = MongoClient(
+            MONGO_URI,
+            serverSelectionTimeoutMS=5000,
+            connectTimeoutMS=5000,
+            retryWrites=False
+        )
         mongo_client.admin.command('ping')
         db = mongo_client['monitor_bot_db']
         colecao = db['palavras_chave']
         BANCO_DISPONIVEL = True
-        print("[✅] MongoDB conectado!")
+        print("[OK] MongoDB conectado!")
     except ServerSelectionTimeoutError:
-        print("[⚠️  AVISO] MongoDB indisponível")
+        print("[AVISO] MongoDB indisponível")
         BANCO_DISPONIVEL = False
     except Exception as e:
-        print(f"[❌ ERRO] MongoDB: {e}")
+        print(f"[ERRO] MongoDB: {e}")
         BANCO_DISPONIVEL = False
-else:
-    colecao = None
 
 # --- CONFIGURAÇÃO FLASK ---
 app_web = Flask(__name__)
@@ -82,41 +72,52 @@ if CREDENCIAIS_OK:
             api_hash=API_HASH,
             no_updates=False,
         )
-        print("[✅] Pyrogram configurado!")
+        print("[OK] Pyrogram configurado!")
     except Exception as e:
-        print(f"[❌ ERRO] Pyrogram: {e}")
+        print(f"[ERRO] Pyrogram: {e}")
         app_bot = None
 
 PALAVRAS_CHAVE = []
 BOT_RODANDO = False
 
-# --- FUNÇÕES DE BANCO DE DADOS COM LOCK ---
+
+# --- FUNÇÕES AUXILIARES ---
+def nome_remetente(message) -> str:
+    """Retorna o nome do remetente, compatível com canais onde from_user é None."""
+    if message.from_user:
+        return message.from_user.first_name or "Usuário"
+    if message.sender_chat:
+        return message.sender_chat.title or "Canal"
+    return "Anônimo"
+
+
+# --- FUNÇÕES DE BANCO DE DADOS ---
 def carregar_palavras():
     global BANCO_DISPONIVEL
-    
+
     if not BANCO_DISPONIVEL or colecao is None:
-        print("[⚠️  AVISO] Usando lista vazia (banco indisponível)")
+        print("[AVISO] Usando lista vazia (banco indisponível)")
         return []
-    
+
     try:
         with db_lock:
             dados = colecao.find_one({"_id": "lista_principal"})
             if dados:
                 return dados.get('palavras', [])
-        
         return []
     except Exception as e:
         print(f"[ERRO] Carregar palavras: {e}")
         BANCO_DISPONIVEL = False
         return []
 
+
 def salvar_palavras(palavras):
     global BANCO_DISPONIVEL
-    
+
     if not BANCO_DISPONIVEL or colecao is None:
-        print("[⚠️  AVISO] Banco indisponível - não salvo")
+        print("[AVISO] Banco indisponível - não salvo")
         return
-    
+
     try:
         with db_lock:
             colecao.update_one(
@@ -129,90 +130,87 @@ def salvar_palavras(palavras):
         print(f"[ERRO] Salvar palavras: {e}")
         BANCO_DISPONIVEL = False
 
+
 # --- COMANDOS ---
 if app_bot:
+
     @app_bot.on_message(filters.command("adicionar"), group=1)
     async def comando_adicionar(client, message):
         global PALAVRAS_CHAVE
-        
+
         try:
             texto = message.text.split(" ", 1)
             if len(texto) < 2:
-                await message.reply_text("⚠️ Use: `/adicionar palavra`")
+                await message.reply_text("Use: /adicionar palavra")
                 return
-            
+
             palavra = texto[1].strip().lower()
             if not palavra or len(palavra) < 2:
-                await message.reply_text("⚠️ Palavra muito curta (mínimo 2 letras)")
+                await message.reply_text("Palavra muito curta (mínimo 2 letras)")
                 return
-            
+
             with keywords_lock:
                 if palavra in PALAVRAS_CHAVE:
-                    await message.reply_text(f"ℹ️ '{palavra}' já existe")
+                    await message.reply_text(f"'{palavra}' já existe na lista")
                     return
-                
                 PALAVRAS_CHAVE.append(palavra)
-            
-            salvar_palavras(PALAVRAS_CHAVE)
+                palavras_para_salvar = PALAVRAS_CHAVE.copy()
+
+            salvar_palavras(palavras_para_salvar)
             await message.reply_text(f"✅ '{palavra}' adicionada!")
             print(f"[LOG] +{palavra}")
         except Exception as e:
             print(f"[ERRO] adicionar: {e}")
-            await message.reply_text("❌ Erro ao adicionar")
+            await message.reply_text("Erro ao adicionar")
 
     @app_bot.on_message(filters.command("remover"), group=1)
     async def comando_remover(client, message):
         global PALAVRAS_CHAVE
-        
+
         try:
             texto = message.text.split(" ", 1)
             if len(texto) < 2:
-                await message.reply_text("⚠️ Use: `/remover palavra`")
+                await message.reply_text("Use: /remover palavra")
                 return
-            
+
             palavra = texto[1].strip().lower()
-            
+
             with keywords_lock:
-                if palavra in PALAVRAS_CHAVE:
-                    PALAVRAS_CHAVE.remove(palavra)
-                else:
-                    await message.reply_text(f"❌ '{palavra}' não existe")
+                if palavra not in PALAVRAS_CHAVE:
+                    await message.reply_text(f"'{palavra}' não está na lista")
                     return
-            
-            salvar_palavras(PALAVRAS_CHAVE)
+                PALAVRAS_CHAVE.remove(palavra)
+                palavras_para_salvar = PALAVRAS_CHAVE.copy()
+
+            salvar_palavras(palavras_para_salvar)
             await message.reply_text(f"🗑️ '{palavra}' removida!")
             print(f"[LOG] -{palavra}")
         except Exception as e:
             print(f"[ERRO] remover: {e}")
-            await message.reply_text("❌ Erro ao remover")
+            await message.reply_text("Erro ao remover")
 
     @app_bot.on_message(filters.command("listar"), group=1)
     async def comando_listar(client, message):
-        print(f"[LOG] ⚡ COMANDO /listar RECEBIDO!", flush=True)
-        print(f"  Chat ID: {message.chat.id}", flush=True)
-        print(f"  Chat Type: {message.chat.type}", flush=True)
-        print(f"  MEU_APP_ID: {MEU_APP_ID}", flush=True)
-        print(f"  User: {message.from_user.first_name if message.from_user else 'Unknown'}", flush=True)
-        
+        print("[LOG] COMANDO /listar RECEBIDO!", flush=True)
+
         try:
             with keywords_lock:
                 if not PALAVRAS_CHAVE:
-                    print("[LOG] Lista vazia, respondendo ao usuário", flush=True)
                     await message.reply_text("📋 Lista vazia")
                     return
-                
                 lista = "\n".join([f"• {p}" for p in sorted(PALAVRAS_CHAVE)])
-            
-            print(f"[LOG] Enviando lista com {len(PALAVRAS_CHAVE)} palavras", flush=True)
-            await message.reply_text(f"📋 Monitorando ({len(PALAVRAS_CHAVE)}):\n\n{lista}")
+                total = len(PALAVRAS_CHAVE)
+
+            await message.reply_text(f"📋 Monitorando ({total}):\n\n{lista}")
         except Exception as e:
             print(f"[ERRO] listar: {type(e).__name__}: {e}", flush=True)
             import traceback
             traceback.print_exc()
 
     # --- MONITORAMENTO ---
+    # Monitora todos os membros, incluindo o próprio dono da conta
     @app_bot.on_message(
-        (filters.group | filters.channel) & ~filters.me & filters.text,
+        (filters.group | filters.channel) & filters.text,
         group=2
     )
     async def verificar_mensagem(client, message):
@@ -221,18 +219,27 @@ if app_bot:
                 if not PALAVRAS_CHAVE:
                     return
                 palavras = PALAVRAS_CHAVE.copy()
-                        
+
             texto = message.text.lower()
-            
+
             for palavra in palavras:
                 if palavra in texto:
                     try:
                         chat_title = message.chat.title or "Chat"
-                        user_name = message.from_user.first_name if message.from_user else "Anônimo"
-                        link = f"\nhttps://t.me/{message.chat.username}/{message.id}" if message.chat.username else ""
-                        
-                        alerta = f"🚨 **'{palavra}'** detectada!\n\n📍 {chat_title}\n👤 {user_name}\n💬 {message.text[:100]}{link}"
-                        await client.send_message(MEU_APP_ID, alerta)
+                        user_name = nome_remetente(message)
+                        link = (
+                            f"\nhttps://t.me/{message.chat.username}/{message.id}"
+                            if message.chat.username else ""
+                        )
+                        alerta = (
+                            f"🚨 Palavra detectada: '{palavra}'\n\n"
+                            f"📍 {chat_title}\n"
+                            f"👤 {user_name}\n"
+                            f"💬 {message.text[:200]}"
+                            f"{link}"
+                        )
+                        # Alerta enviado no mesmo grupo onde a palavra apareceu
+                        await client.send_message(message.chat.id, alerta)
                         print(f"[ALERTA] '{palavra}' em {chat_title}")
                     except Exception as e:
                         print(f"[ERRO] enviar alerta: {e}")
@@ -240,17 +247,19 @@ if app_bot:
         except Exception as e:
             print(f"[ERRO] verificar_mensagem: {e}")
 
+
 # --- ROTAS WEB ---
 @app_web.route('/')
 def home():
     return "✅ Online"
+
 
 @app_web.route('/status')
 def status():
     with keywords_lock:
         num_palavras = len(PALAVRAS_CHAVE)
         palavras = PALAVRAS_CHAVE.copy()
-    
+
     return jsonify({
         "status": "online" if BOT_RODANDO else "offline",
         "banco_disponivel": BANCO_DISPONIVEL,
@@ -258,28 +267,29 @@ def status():
         "palavras": palavras
     })
 
+
 @app_web.route('/health')
 def health():
     return jsonify({"status": "healthy", "bot": "online" if BOT_RODANDO else "offline"}), 200
+
 
 # --- BOT RUNNER ---
 async def iniciar_bot():
     global BOT_RODANDO
     if not app_bot:
-        print("[❌] Bot não configurado", flush=True)
+        print("[ERRO] Bot não configurado", flush=True)
         return
-    
+
     try:
         print("[LOG] Bot conectando ao Telegram...", flush=True)
         await app_bot.start()
         BOT_RODANDO = True
-        print("[✅] Bot conectado com sucesso!", flush=True)
+        print("[OK] Bot conectado com sucesso!", flush=True)
         print("[LOG] Bot aguardando mensagens...", flush=True)
-        
-        # Aguarda indefinidamente mantendo o bot rodando
+
         while BOT_RODANDO:
             await asyncio.sleep(1)
-        
+
     except Exception as e:
         print(f"[ERRO] Bot: {type(e).__name__}: {e}", flush=True)
         import traceback
@@ -293,52 +303,61 @@ async def iniciar_bot():
         except Exception as e:
             print(f"[ERRO] Ao desconectar: {e}", flush=True)
         BOT_RODANDO = False
-        print("[❌] Bot desconectado", flush=True)
+        print("[LOG] Bot desconectado", flush=True)
+
 
 def executar_bot():
-    """Executa o bot em um novo event loop"""
+    """Executa o bot em um novo event loop isolado."""
+    # Cria um loop limpo — não reutiliza nenhum loop do módulo principal
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    
+
     try:
         loop.run_until_complete(iniciar_bot())
     except KeyboardInterrupt:
         print("[LOG] Bot interrompido pelo usuário", flush=True)
     finally:
         loop.close()
-        BOT_RODANDO = False
-        print("[❌] Bot desconectado", flush=True)
+        print("[LOG] Event loop encerrado", flush=True)
+
 
 # --- INICIALIZAÇÃO ---
 if __name__ == "__main__":
-    print("\n" + "="*60)
-    print("🤖 TELEGRAM KEYWORD MONITOR BOT")
-    print("="*60 + "\n")
-    
-    # 1. Carregar palavras (antes de iniciar threads)
+    print("\n" + "=" * 60)
+    print("TELEGRAM KEYWORD MONITOR BOT")
+    print("=" * 60 + "\n")
+
+    # 1. Carregar palavras
     print("[1/3] Carregando palavras...")
     try:
         PALAVRAS_CHAVE = carregar_palavras()
-        print(f"[✅] {len(PALAVRAS_CHAVE)} palavras carregadas")
+        print(f"[OK] {len(PALAVRAS_CHAVE)} palavras carregadas")
     except Exception as e:
         print(f"[ERRO] {e}")
         PALAVRAS_CHAVE = []
-    
+
     # 2. Iniciar bot em thread separada
     print("\n[2/3] Iniciando bot...")
     if app_bot:
-        bot_thread = threading.Thread(target=executar_bot, daemon=False)
+        # daemon=True: thread encerra junto com o processo principal
+        bot_thread = threading.Thread(target=executar_bot, daemon=True)
         bot_thread.start()
-        print("[✅] Bot thread iniciada")
-        time.sleep(1)
+        print("[OK] Bot thread iniciada")
+        time.sleep(2)
     else:
-        print("[❌] Credenciais ausentes")
-    
-    # 3. Iniciar Flask na thread principal (isso bloqueia)
+        print("[ERRO] Credenciais ausentes, bot não iniciado")
+
+    # 3. Iniciar Flask na thread principal
     print("\n[3/3] Iniciando Flask...")
     try:
         porta = int(os.environ.get("PORT", 10000))
-        print(f"[✅] Flask será iniciado na porta {porta}")
-        app_web.run(host="0.0.0.0", port=porta, debug=False, use_reloader=False, threaded=True)
+        print(f"[OK] Flask iniciando na porta {porta}")
+        app_web.run(
+            host="0.0.0.0",
+            port=porta,
+            debug=False,
+            use_reloader=False,
+            threaded=True
+        )
     except Exception as e:
-        print(f"[❌] Flask: {e}")
+        print(f"[ERRO] Flask: {e}")
