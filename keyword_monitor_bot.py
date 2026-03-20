@@ -297,21 +297,8 @@ if __name__ == "__main__":
     print("🤖 TELEGRAM KEYWORD MONITOR BOT")
     print("="*60 + "\n")
     
-    # 1. Flask
-    print("[1/3] Iniciando Flask...")
-    try:
-        porta = int(os.environ.get("PORT", 10000))
-        threading.Thread(
-            target=lambda: app_web.run(host="0.0.0.0", port=porta, debug=False, use_reloader=False),
-            daemon=False
-        ).start()
-        time.sleep(2)
-        print(f"[✅] Flask porta {porta}")
-    except Exception as e:
-        print(f"[❌] Flask: {e}")
-    
-    # 2. Carregar palavras
-    print("\n[2/3] Carregando palavras...")
+    # 1. Carregar palavras (antes de iniciar threads)
+    print("[1/3] Carregando palavras...")
     try:
         PALAVRAS_CHAVE = carregar_palavras()
         print(f"[✅] {len(PALAVRAS_CHAVE)} palavras carregadas")
@@ -319,21 +306,21 @@ if __name__ == "__main__":
         print(f"[ERRO] {e}")
         PALAVRAS_CHAVE = []
     
-    # 3. Bot
-    print("\n[3/3] Iniciando bot...")
+    # 2. Iniciar bot em thread separada
+    print("\n[2/3] Iniciando bot...")
     if app_bot:
-        threading.Thread(target=executar_bot, daemon=False).start()
+        bot_thread = threading.Thread(target=executar_bot, daemon=False)
+        bot_thread.start()
         print("[✅] Bot thread iniciada")
+        time.sleep(1)
     else:
         print("[❌] Credenciais ausentes")
     
-    print("\n" + "="*60)
-    print("✅ Sistema pronto!")
-    print("="*60 + "\n")
-    
+    # 3. Iniciar Flask na thread principal (isso bloqueia)
+    print("\n[3/3] Iniciando Flask...")
     try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print("\n[LOG] Encerrando...")
-        BOT_RODANDO = False
+        porta = int(os.environ.get("PORT", 10000))
+        print(f"[✅] Flask será iniciado na porta {porta}")
+        app_web.run(host="0.0.0.0", port=porta, debug=False, use_reloader=False, threaded=True)
+    except Exception as e:
+        print(f"[❌] Flask: {e}")
