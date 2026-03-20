@@ -276,8 +276,9 @@ async def iniciar_bot():
         print("[✅] Bot conectado com sucesso!", flush=True)
         print("[LOG] Bot aguardando mensagens...", flush=True)
         
-        # Crucial: aguarda indefinidamente por mensagens
-        await app_bot.idle()
+        # Aguarda indefinidamente mantendo o bot rodando
+        while BOT_RODANDO:
+            await asyncio.sleep(1)
         
     except Exception as e:
         print(f"[ERRO] Bot: {type(e).__name__}: {e}", flush=True)
