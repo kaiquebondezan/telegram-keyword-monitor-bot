@@ -15,7 +15,7 @@ except RuntimeError:
     asyncio.set_event_loop(loop)
 
 from pyrogram import Client, filters
-from pyrogram.errors import ConnectionError as PyrogramConnectionError
+# from pyrogram.errors import ConnectionError as PyrogramConnectionError
 
 # --- CREDENCIAIS ---
 API_ID = int(os.environ.get("API_ID", 0))
@@ -280,16 +280,13 @@ def executar_bot():
             BOT_RODANDO = True
             print("[LOG] Bot iniciando...")
             app_bot.run()
-        except PyrogramConnectionError as e:
-            print(f"[ERRO] Conexão Telegram: {e}")
+        except Exception as e:
+            print(f"[ERRO] Falha de conexão: {e}")
+            BOT_RODANDO = False
             retry_count += 1
             if retry_count < max_retries:
                 print(f"[LOG] Tentando reconectar ({retry_count}/{max_retries})...")
                 time.sleep(5)
-        except Exception as e:
-            print(f"[ERRO] Inesperado: {e}")
-            retry_count += 1
-            time.sleep(5)
     
     BOT_RODANDO = False
     print("[❌] Bot desconectado após retries")
