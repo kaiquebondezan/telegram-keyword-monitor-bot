@@ -132,7 +132,7 @@ def salvar_palavras(palavras):
 
 # --- COMANDOS ---
 if app_bot:
-    @app_bot.on_message(filters.command(["adicionar"], prefixes="/"), group=1)
+    @app_bot.on_message(filters.command("adicionar"), group=1)
     async def comando_adicionar(client, message):
         global PALAVRAS_CHAVE
         
@@ -147,7 +147,7 @@ if app_bot:
             
             palavra = texto[1].strip().lower()
             if not palavra or len(palavra) < 2:
-                await message.reply_text("⚠️ Palavra muito curta")
+                await message.reply_text("⚠️ Palavra muito curta (mínimo 2 letras)")
                 return
             
             with keywords_lock:
@@ -164,7 +164,7 @@ if app_bot:
             print(f"[ERRO] adicionar: {e}")
             await message.reply_text("❌ Erro ao adicionar")
 
-    @app_bot.on_message(filters.command(["remover"], prefixes="/"), group=1)
+    @app_bot.on_message(filters.command("remover"), group=1)
     async def comando_remover(client, message):
         global PALAVRAS_CHAVE
         
@@ -193,7 +193,7 @@ if app_bot:
             print(f"[ERRO] remover: {e}")
             await message.reply_text("❌ Erro ao remover")
 
-    @app_bot.on_message(filters.command(["listar"], prefixes="/"), group=1)
+    @app_bot.on_message(filters.command("listar"), group=1)
     async def comando_listar(client, message):
         if message.chat.type != "private":
             return
