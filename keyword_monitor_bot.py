@@ -135,9 +135,6 @@ if app_bot:
     async def comando_adicionar(client, message):
         global PALAVRAS_CHAVE
         
-        if message.chat.type != "private":
-            return
-        
         try:
             texto = message.text.split(" ", 1)
             if len(texto) < 2:
@@ -167,9 +164,6 @@ if app_bot:
     async def comando_remover(client, message):
         global PALAVRAS_CHAVE
         
-        if message.chat.type != "private":
-            return
-        
         try:
             texto = message.text.split(" ", 1)
             if len(texto) < 2:
@@ -194,9 +188,6 @@ if app_bot:
 
     @app_bot.on_message(filters.command("listar"), group=1)
     async def comando_listar(client, message):
-        if message.chat.type != "private":
-            return
-        
         try:
             with keywords_lock:
                 if not PALAVRAS_CHAVE:
