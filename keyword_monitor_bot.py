@@ -188,24 +188,25 @@ if app_bot:
 
     @app_bot.on_message(filters.command("listar"), group=1)
     async def comando_listar(client, message):
-        print(f"[LOG] Comando /listar recebido!")
-        print(f"  Chat ID: {message.chat.id}")
-        print(f"  Chat Type: {message.chat.type}")
-        print(f"  MEU_APP_ID: {MEU_APP_ID}")
+        print(f"[LOG] ⚡ COMANDO /listar RECEBIDO!", flush=True)
+        print(f"  Chat ID: {message.chat.id}", flush=True)
+        print(f"  Chat Type: {message.chat.type}", flush=True)
+        print(f"  MEU_APP_ID: {MEU_APP_ID}", flush=True)
+        print(f"  User: {message.from_user.first_name if message.from_user else 'Unknown'}", flush=True)
         
         try:
             with keywords_lock:
                 if not PALAVRAS_CHAVE:
-                    print("[LOG] Lista vazia, respondendo ao usuário")
+                    print("[LOG] Lista vazia, respondendo ao usuário", flush=True)
                     await message.reply_text("📋 Lista vazia")
                     return
                 
                 lista = "\n".join([f"• {p}" for p in sorted(PALAVRAS_CHAVE)])
             
-            print(f"[LOG] Enviando lista com {len(PALAVRAS_CHAVE)} palavras")
+            print(f"[LOG] Enviando lista com {len(PALAVRAS_CHAVE)} palavras", flush=True)
             await message.reply_text(f"📋 Monitorando ({len(PALAVRAS_CHAVE)}):\n\n{lista}")
         except Exception as e:
-            print(f"[ERRO] listar: {e}")
+            print(f"[ERRO] listar: {type(e).__name__}: {e}", flush=True)
             import traceback
             traceback.print_exc()
 
@@ -265,7 +266,7 @@ def health():
 def executar_bot():
     global BOT_RODANDO
     if not app_bot:
-        print("[❌] Bot não configurado")
+        print("[❌] Bot não configurado", flush=True)
         return
     
     # Cria um novo event loop para esta thread
@@ -278,18 +279,22 @@ def executar_bot():
     while retry_count < max_retries:
         try:
             BOT_RODANDO = True
-            print("[LOG] Bot iniciando...")
+            print("[LOG] Bot iniciando... conectando ao Telegram", flush=True)
+            
+            # Registra handlers
+            print(f"[LOG] Total de handlers registrados: {len(app_bot._handlers)}", flush=True)
+            
             app_bot.run()
         except Exception as e:
-            print(f"[ERRO] Falha de conexão: {e}")
+            print(f"[ERRO] Falha de conexão: {type(e).__name__}: {e}", flush=True)
             BOT_RODANDO = False
             retry_count += 1
             if retry_count < max_retries:
-                print(f"[LOG] Tentando reconectar ({retry_count}/{max_retries})...")
+                print(f"[LOG] Tentando reconectar ({retry_count}/{max_retries})...", flush=True)
                 time.sleep(5)
     
     BOT_RODANDO = False
-    print("[❌] Bot desconectado após retries")
+    print("[❌] Bot desconectado após retries", flush=True)
 
 # --- INICIALIZAÇÃO ---
 if __name__ == "__main__":
