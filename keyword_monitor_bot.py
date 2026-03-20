@@ -280,11 +280,7 @@ def executar_bot():
         try:
             BOT_RODANDO = True
             print("[LOG] Bot iniciando... conectando ao Telegram", flush=True)
-            
-            # Registra handlers
-            print(f"[LOG] Total de handlers registrados: {len(app_bot._handlers)}", flush=True)
-            
-            app_bot.run()
+            app_bot.run()  # Remove a linha de _handlers
         except Exception as e:
             print(f"[ERRO] Falha de conexão: {type(e).__name__}: {e}", flush=True)
             BOT_RODANDO = False
