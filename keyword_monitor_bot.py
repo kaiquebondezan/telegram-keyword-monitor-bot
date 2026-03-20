@@ -263,34 +263,42 @@ def health():
     return jsonify({"status": "healthy", "bot": "online" if BOT_RODANDO else "offline"}), 200
 
 # --- BOT RUNNER ---
-def executar_bot():
+async def iniciar_bot():
     global BOT_RODANDO
     if not app_bot:
         print("[❌] Bot não configurado", flush=True)
         return
     
-    # Cria um novo event loop para esta thread
+    try:
+        print("[LOG] Bot conectando ao Telegram...", flush=True)
+        await app_bot.start()
+        BOT_RODANDO = True
+        print("[✅] Bot conectado com sucesso!", flush=True)
+        
+        # Mantém o bot rodando indefinidamente
+        await asyncio.sleep(float('inf'))
+    except Exception as e:
+        print(f"[ERRO] Bot: {type(e).__name__}: {e}", flush=True)
+        BOT_RODANDO = False
+    finally:
+        try:
+            await app_bot.stop()
+        except:
+            pass
+
+def executar_bot():
+    """Executa o bot em um novo event loop"""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     
-    max_retries = 5
-    retry_count = 0
-    
-    while retry_count < max_retries:
-        try:
-            BOT_RODANDO = True
-            print("[LOG] Bot iniciando... conectando ao Telegram", flush=True)
-            app_bot.run()  # Remove a linha de _handlers
-        except Exception as e:
-            print(f"[ERRO] Falha de conexão: {type(e).__name__}: {e}", flush=True)
-            BOT_RODANDO = False
-            retry_count += 1
-            if retry_count < max_retries:
-                print(f"[LOG] Tentando reconectar ({retry_count}/{max_retries})...", flush=True)
-                time.sleep(5)
-    
-    BOT_RODANDO = False
-    print("[❌] Bot desconectado após retries", flush=True)
+    try:
+        loop.run_until_complete(iniciar_bot())
+    except KeyboardInterrupt:
+        print("[LOG] Bot interrompido pelo usuário", flush=True)
+    finally:
+        loop.close()
+        BOT_RODANDO = False
+        print("[❌] Bot desconectado", flush=True)
 
 # --- INICIALIZAÇÃO ---
 if __name__ == "__main__":
