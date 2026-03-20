@@ -188,17 +188,26 @@ if app_bot:
 
     @app_bot.on_message(filters.command("listar"), group=1)
     async def comando_listar(client, message):
+        print(f"[LOG] Comando /listar recebido!")
+        print(f"  Chat ID: {message.chat.id}")
+        print(f"  Chat Type: {message.chat.type}")
+        print(f"  MEU_APP_ID: {MEU_APP_ID}")
+        
         try:
             with keywords_lock:
                 if not PALAVRAS_CHAVE:
+                    print("[LOG] Lista vazia, respondendo ao usuário")
                     await message.reply_text("📋 Lista vazia")
                     return
                 
                 lista = "\n".join([f"• {p}" for p in sorted(PALAVRAS_CHAVE)])
             
+            print(f"[LOG] Enviando lista com {len(PALAVRAS_CHAVE)} palavras")
             await message.reply_text(f"📋 Monitorando ({len(PALAVRAS_CHAVE)}):\n\n{lista}")
         except Exception as e:
             print(f"[ERRO] listar: {e}")
+            import traceback
+            traceback.print_exc()
 
     # --- MONITORAMENTO ---
     @app_bot.on_message(
@@ -211,10 +220,7 @@ if app_bot:
                 if not PALAVRAS_CHAVE:
                     return
                 palavras = PALAVRAS_CHAVE.copy()
-            
-            if message.chat.id == MEU_APP_ID:
-                return
-            
+                        
             texto = message.text.lower()
             
             for palavra in palavras:
