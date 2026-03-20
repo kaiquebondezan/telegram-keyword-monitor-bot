@@ -1,4 +1,4 @@
-Flask==3.0.0
 pyrogram==2.0.106
-pymongo[srv]==4.6.0
-TgCrypto==1.2.5
+tgcrypto
+pymongo
+flask

@@ -14,6 +14,11 @@ API_HASH = os.environ.get("API_HASH")
 SESSION_STRING = os.environ.get("SESSION_STRING")
 MONGO_URI = os.environ.get("MONGO_URI")
 
+# ID do grupo onde os comandos são aceitos E os alertas são enviados.
+# Para descobrir o ID do seu grupo, encaminhe uma mensagem dele para @userinfobot.
+# O valor geralmente é negativo, ex: -1001234567890
+GRUPO_ID = int(os.environ.get("GRUPO_ID", 0))
+
 # --- LOCK PARA SEGURANÇA DE THREADS ---
 db_lock = threading.Lock()
 keywords_lock = threading.Lock()
@@ -27,6 +32,12 @@ if not API_ID or not API_HASH or not SESSION_STRING:
     print(f"  API_HASH: {bool(API_HASH)}")
     print(f"  SESSION_STRING: {bool(SESSION_STRING)}")
     CREDENCIAIS_OK = False
+
+if not GRUPO_ID:
+    print("[ERRO] GRUPO_ID não configurado!")
+    CREDENCIAIS_OK = False
+else:
+    print(f"[OK] Grupo de alertas/comandos: {GRUPO_ID}")
 
 if not MONGO_URI:
     print("[AVISO] MONGO_URI não configurada!")
@@ -82,6 +93,11 @@ BOT_RODANDO = False
 
 
 # --- FUNÇÕES AUXILIARES ---
+def é_grupo_autorizado(message) -> bool:
+    """Retorna True apenas se o comando veio do grupo configurado em GRUPO_ID."""
+    return message.chat.id == GRUPO_ID
+
+
 def nome_remetente(message) -> str:
     """Retorna o nome do remetente, compatível com canais onde from_user é None."""
     if message.from_user:
@@ -138,6 +154,10 @@ if app_bot:
     async def comando_adicionar(client, message):
         global PALAVRAS_CHAVE
 
+        # Ignora silenciosamente comandos fora do grupo autorizado
+        if not é_grupo_autorizado(message):
+            return
+
         try:
             texto = message.text.split(" ", 1)
             if len(texto) < 2:
@@ -167,6 +187,9 @@ if app_bot:
     async def comando_remover(client, message):
         global PALAVRAS_CHAVE
 
+        if not é_grupo_autorizado(message):
+            return
+
         try:
             texto = message.text.split(" ", 1)
             if len(texto) < 2:
@@ -191,6 +214,9 @@ if app_bot:
 
     @app_bot.on_message(filters.command("listar"), group=1)
     async def comando_listar(client, message):
+        if not é_grupo_autorizado(message):
+            return
+
         print("[LOG] COMANDO /listar RECEBIDO!", flush=True)
 
         try:
@@ -208,7 +234,8 @@ if app_bot:
             traceback.print_exc()
 
     # --- MONITORAMENTO ---
-    # Monitora todos os membros, incluindo o próprio dono da conta
+    # Monitora todos os grupos/canais que o userbot participa,
+    # incluindo mensagens do próprio dono da conta
     @app_bot.on_message(
         (filters.group | filters.channel) & filters.text,
         group=2
@@ -238,8 +265,8 @@ if app_bot:
                             f"💬 {message.text[:200]}"
                             f"{link}"
                         )
-                        # Alerta enviado no mesmo grupo onde a palavra apareceu
-                        await client.send_message(message.chat.id, alerta)
+                        # Alerta sempre enviado para o grupo fixo configurado em GRUPO_ID
+                        await client.send_message(GRUPO_ID, alerta)
                         print(f"[ALERTA] '{palavra}' em {chat_title}")
                     except Exception as e:
                         print(f"[ERRO] enviar alerta: {e}")
@@ -308,7 +335,6 @@ async def iniciar_bot():
 
 def executar_bot():
     """Executa o bot em um novo event loop isolado."""
-    # Cria um loop limpo — não reutiliza nenhum loop do módulo principal
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
