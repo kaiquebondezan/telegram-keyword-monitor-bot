@@ -4,11 +4,12 @@ import threading
 import asyncio
 from flask import Flask
 from pymongo import MongoClient
-from pyrogram import Client, filters
 
 # --- CORREÇÃO PARA O PYTHON NO RENDER ---
 loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)
+
+from pyrogram import Client, filters
 
 # --- CREDENCIAIS ---
 API_ID = int(os.environ.get("API_ID", 0))
