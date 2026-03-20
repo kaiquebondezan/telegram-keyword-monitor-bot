@@ -17,35 +17,34 @@ SESSION_STRING = os.environ.get("SESSION_STRING")
 MEU_APP_ID = int(os.environ.get("MEU_APP_ID", 0))
 MONGO_URI = os.environ.get("MONGO_URI")
 
-# --- CONFIGURAÇÃO MONGODB ---
-mongo_client = MongoClient(MONGO_URI)
+# --- CONFIGURAÇÃO MONGODB (Com Timeout de Segurança) ---
+# Se o banco não responder em 5 segundos, ele avisa em vez de travar o Render
+mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
 db = mongo_client['monitor_bot_db']
 colecao = db['palavras_chave']
 
 app_web = Flask(__name__)
 app_bot = Client("meu_userbot", session_string=SESSION_STRING, api_id=API_ID, api_hash=API_HASH)
 
+# Inicializa a lista vazia primeiro para não travar o carregamento
+PALAVRAS_CHAVE = []
+
 # --- FUNÇÕES DE BANCO DE DADOS ---
 def carregar_palavras():
-    # Busca o documento único que guarda nossa lista
     dados = colecao.find_one({"id": "lista_principal"})
     if dados:
         return dados['palavras']
     
-    # Se não existir nada no banco, cria os padrões
     padrao = ['urgente', 'comprar', 'ajuda', 'orçamento']
     salvar_palavras(padrao)
     return padrao
 
 def salvar_palavras(palavras):
-    # Atualiza ou cria (upsert) a lista no MongoDB
     colecao.update_one(
         {"id": "lista_principal"},
         {"$set": {"palavras": palavras}},
         upsert=True
     )
-
-PALAVRAS_CHAVE = carregar_palavras()
 
 # --- COMANDOS ---
 @app_bot.on_message(filters.command("adicionar", prefixes=["/", ".", "!"]) & filters.chat(MEU_APP_ID))
@@ -80,12 +79,12 @@ async def comando_remover(client, message):
     else:
         await message.reply_text("Palavra não encontrada.")
 
-# ⚠️ TRAVA DE GRUPO REMOVIDA AQUI PARA TESTE GERAL ⚠️
+# Trava removida temporariamente para teste
 @app_bot.on_message(filters.command("listar", prefixes=["/", ".", "!"]))
 async def comando_listar(client, message):
     print(f"[LOG] Comando /listar recebido do chat ID: {message.chat.id}")
     if not PALAVRAS_CHAVE:
-        await message.reply_text("Lista vazia.")
+        await message.reply_text("Lista vazia ou banco desconectado.")
         return
     lista_formatada = "\n".join([f"- {p}" for p in PALAVRAS_CHAVE])
     await message.reply_text(f"📋 **Palavras no MongoDB:**\n{lista_formatada}")
@@ -104,15 +103,25 @@ async def verificar_mensagem(client, message):
             await client.send_message(MEU_APP_ID, alerta)
             break
 
-# --- ROTA WEB E INICIALIZAÇÃO ---
+# --- ROTA WEB E INICIALIZAÇÃO SEGURA ---
 @app_web.route('/')
 def home(): 
-    return "UserBot ativo com MongoDB!"
+    return "UserBot ativo!"
 
 if __name__ == "__main__":
+    # 1. Liga o servidor Web primeiro (Render aprova o Deploy aqui)
     print("[LOG] Iniciando servidor Flask...")
     porta = int(os.environ.get("PORT", 10000))
     threading.Thread(target=lambda: app_web.run(host="0.0.0.0", port=porta, use_reloader=False), daemon=True).start()
     
+    # 2. Tenta conectar no MongoDB com segurança
+    print("[LOG] Conectando ao MongoDB...")
+    try:
+        PALAVRAS_CHAVE = carregar_palavras()
+        print(f"[LOG] Banco OK! Palavras carregadas: {PALAVRAS_CHAVE}")
+    except Exception as e:
+        print(f"\n[ERRO CRÍTICO MONGODB] Não foi possível conectar ao banco de dados!\nMotivo: {e}\n")
+    
+    # 3. Liga o bot
     print("[LOG] Iniciando Pyrogram...")
     app_bot.run()
