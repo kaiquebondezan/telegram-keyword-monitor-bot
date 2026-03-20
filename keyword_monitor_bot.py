@@ -150,7 +150,7 @@ def salvar_palavras(palavras):
 # --- COMANDOS ---
 if app_bot:
 
-    @app_bot.on_message(filters.command("adicionar"), group=1)
+    @app_bot.on_message(filters.command("adicionar") & (filters.incoming | filters.outgoing), group=1)
     async def comando_adicionar(client, message):
         global PALAVRAS_CHAVE
 
@@ -183,7 +183,7 @@ if app_bot:
             print(f"[ERRO] adicionar: {e}")
             await message.reply_text("Erro ao adicionar")
 
-    @app_bot.on_message(filters.command("remover"), group=1)
+    @app_bot.on_message(filters.command("remover") & (filters.incoming | filters.outgoing), group=1)
     async def comando_remover(client, message):
         global PALAVRAS_CHAVE
 
@@ -212,7 +212,7 @@ if app_bot:
             print(f"[ERRO] remover: {e}")
             await message.reply_text("Erro ao remover")
 
-    @app_bot.on_message(filters.command("listar"), group=1)
+    @app_bot.on_message(filters.command("listar") & (filters.incoming | filters.outgoing), group=1)
     async def comando_listar(client, message):
         if not é_grupo_autorizado(message):
             return
