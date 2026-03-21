@@ -12,7 +12,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
-logger = logging.getLogger(_name_)
+logger = logging.getLogger(__name__)
 
 
 async def main() -> None:
@@ -38,5 +38,5 @@ async def main() -> None:
     logger.info("Bot encerrado.")
 
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     asyncio.run(main())

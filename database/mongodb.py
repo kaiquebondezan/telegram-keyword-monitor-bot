@@ -5,7 +5,7 @@ import motor.motor_asyncio
 
 from config import MONGO_URI
 
-logger = logging.getLogger(_name_)
+logger = logging.getLogger(__name__)
 
 _client: motor.motor_asyncio.AsyncIOMotorClient = None
 _collection: motor.motor_asyncio.AsyncIOMotorCollection = None

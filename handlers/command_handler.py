@@ -6,14 +6,13 @@ from pyrogram.types import Message
 import database.mongodb as db
 from config import CONTROL_GROUP_ID
 
-logger = logging.getLogger(_name_)
+logger = logging.getLogger(__name__)
 
 
-def in_control_group(, __, message: Message) -> bool:
-    return message.chat and message.chat.id == CONTROL_GROUP_ID
+def in_control_group(client, filter_obj, message: Message) -> bool:    return message.chat and message.chat.id == CONTROL_GROUP_ID
 
 
-_control_group_filter = filters.create(_in_control_group)
+_control_group_filter = filters.create(in_control_group)
 
 
 def register(app: Client) -> None:
