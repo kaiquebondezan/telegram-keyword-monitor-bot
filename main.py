@@ -1,0 +1,42 @@
+import asyncio
+import logging
+
+from pyrogram import Client, idle
+
+import database.mongodb as db
+import handlers.command_handler as command_handler
+import handlers.message_handler as message_handler
+from config import API_HASH, API_ID, CONTROL_GROUP_ID, SESSION_STRING
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger(_name_)
+
+
+async def main() -> None:
+    await db.connect()  # lança exceção se o Atlas estiver inacessível
+
+    app = Client(
+        name="keyword_monitor",
+        api_id=API_ID,
+        api_hash=API_HASH,
+        session_string=SESSION_STRING,
+    )
+
+    command_handler.register(app)
+    message_handler.register(app)
+
+    async with app:
+        me = await app.get_me()
+        logger.info("Autenticado como: %s (id=%s)", me.first_name, me.id)
+        logger.info("Bot ativo. Aguardando mensagens...")
+        await app.send_message(CONTROL_GROUP_ID, "🟢 Bot iniciado e monitorando mensagens.")
+        await idle()
+
+    logger.info("Bot encerrado.")
+
+
+if _name_ == "_main_":
+    asyncio.run(main())
