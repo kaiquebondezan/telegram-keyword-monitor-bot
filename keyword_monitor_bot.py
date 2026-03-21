@@ -15,8 +15,6 @@ SESSION_STRING = os.environ.get("SESSION_STRING")
 MONGO_URI = os.environ.get("MONGO_URI")
 
 # ID do grupo onde os comandos são aceitos E os alertas são enviados.
-# Para descobrir o ID do seu grupo, encaminhe uma mensagem dele para @userinfobot.
-# O valor geralmente é negativo, ex: -1001234567890
 GRUPO_ID = int(os.environ.get("GRUPO_ID", 0))
 
 # --- LOCK PARA SEGURANÇA DE THREADS ---
@@ -154,7 +152,6 @@ if app_bot:
     async def comando_adicionar(client, message):
         global PALAVRAS_CHAVE
 
-        # Ignora silenciosamente comandos fora do grupo autorizado
         if not é_grupo_autorizado(message):
             return
 
@@ -234,13 +231,14 @@ if app_bot:
             traceback.print_exc()
 
     # --- MONITORAMENTO ---
-    # Monitora todos os grupos/canais que o userbot participa,
-    # incluindo mensagens do próprio dono da conta
     @app_bot.on_message(
         (filters.group | filters.channel) & filters.text,
         group=2
     )
     async def verificar_mensagem(client, message):
+        # DEBUG TEMPORÁRIO: mostra o chat.id real que o Pyrogram está recebendo
+        print(f"[DEBUG] Mensagem recebida! chat.id={message.chat.id} title={message.chat.title}", flush=True)
+
         try:
             with keywords_lock:
                 if not PALAVRAS_CHAVE:
@@ -265,7 +263,6 @@ if app_bot:
                             f"💬 {message.text[:200]}"
                             f"{link}"
                         )
-                        # Alerta sempre enviado para o grupo fixo configurado em GRUPO_ID
                         await client.send_message(GRUPO_ID, alerta)
                         print(f"[ALERTA] '{palavra}' em {chat_title}")
                     except Exception as e:
@@ -365,7 +362,6 @@ if __name__ == "__main__":
     # 2. Iniciar bot em thread separada
     print("\n[2/3] Iniciando bot...")
     if app_bot:
-        # daemon=True: thread encerra junto com o processo principal
         bot_thread = threading.Thread(target=executar_bot, daemon=True)
         bot_thread.start()
         print("[OK] Bot thread iniciada")
