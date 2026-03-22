@@ -32,7 +32,11 @@ async def main() -> None:
         me = await app.get_me()
         logger.info("Autenticado como: %s (id=%s)", me.first_name, me.id)
         logger.info("Bot ativo. Aguardando mensagens...")
-        # await app.send_message(CONTROL_GROUP_ID, "🟢 Bot iniciado e monitorando mensagens.")
+        try:
+            await app.send_message(CONTROL_GROUP_ID, "🟢 Bot iniciado.")
+        except Exception:
+            logger.warning("Não foi possível enviar mensagem de startup.")
+
         await idle()
 
     logger.info("Bot encerrado.")
