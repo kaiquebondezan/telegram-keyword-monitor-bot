@@ -47,6 +47,15 @@ def _format_alert(keyword: str, message: Message) -> str:
 
 
 def register(app: Client) -> None:
+    @app.on_message()  # sem filtro — captura TUDO
+    async def debug_all(client: Client, message: Message) -> None:
+        logger.info(
+            "DEBUG MSG: chat_id=%s tipo=%s texto='%s'",
+            message.chat.id,
+            message.chat.type,
+            (message.text or message.caption or "")[:50],
+        )
+
     @app.on_message(_external_filter & (filters.text | filters.caption))
     async def monitor_messages(client: Client, message: Message) -> None:
         keywords = await db.get_keywords()
