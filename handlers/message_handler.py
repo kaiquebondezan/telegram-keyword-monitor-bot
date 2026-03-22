@@ -69,4 +69,4 @@ def register(app: Client) -> None:
     # Grupos e privados
     app.on_message(_external_filter & (filters.text | filters.caption))(process_message)
     # Canais
-    app.on_channel_post(filters.text | filters.caption)(process_message)
+    app.on_message(filters.channel & (filters.text | filters.caption))(process_message)
