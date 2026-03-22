@@ -31,9 +31,14 @@ async def main() -> None:
     async with app:
         me = await app.get_me()
         logger.info("Autenticado como: %s (id=%s)", me.first_name, me.id)
+        
+        # Carrega todos os chats na sessão (grupos, canais, privados)
+        await app.get_dialogs()
+        logger.info("Dialogs carregados.")
+        
         logger.info("Bot ativo. Aguardando mensagens...")
         try:
-            await app.get_chat(CONTROL_GROUP_ID)  # força cache do peer
+            await app.get_chat(CONTROL_GROUP_ID)
             await app.send_message(CONTROL_GROUP_ID, "🟢 Bot iniciado.")
         except Exception as e:
             logger.warning("Não foi possível enviar mensagem de startup: %s", e)
