@@ -60,7 +60,7 @@ def register(app: Client) -> None:
         if not matched:
             return
 
-        chat_name = getattr(message.chat, "title", None) or str(message.chat.id)
+        chat_name = getattr(message.chat, "title", None) or getattr(message.chat, "username", None) or str(message.chat.id)
         logger.info(
             "Match encontrado em '%s': keywords=%s",
             chat_name,
@@ -69,16 +69,36 @@ def register(app: Client) -> None:
 
         for keyword in matched:
             try:
-                # Encaminha a mensagem original
+                # 1. Encaminha a mensagem original
                 await client.forward_messages(
                     chat_id=CONTROL_GROUP_ID,
                     from_chat_id=message.chat.id,
                     message_ids=message.id
                 )
-                # Opcional: adiciona um comentário após o forward
-                await client.send_message(
-                    CONTROL_GROUP_ID,
-                    f"🔔 *Keyword detectada:* {keyword}"
-                )
+
+                # 2. Envia alerta com detalhes
+                sender_name = ""
+                if message.from_user:
+                    sender_name = message.from_user.first_name or ""
+                    if message.from_user.last_name:
+                        sender_name += f" {message.from_user.last_name}"
+                    if message.from_user.username:
+                        sender_name += f" (@{message.from_user.username})"
+                elif message.sender_chat:
+                    sender_name = getattr(message.sender_chat, "title", str(message.sender_chat.id))
+
+                date_str = message.date.strftime("%d/%m/%Y %H:%M") if message.date else ""
+
+                alert = f"🔔 *Keyword detectada:* {keyword}\n📍 *Chat:* {chat_name}"
+                if sender_name:
+                    alert += f"\n👤 *De:* {sender_name}"
+                if date_str:
+                    alert += f"\n🕐 {date_str}"
+                await client.send_message(CONTROL_GROUP_ID, alert)
+
             except Exception as e:
-                logger.error(...)
+                logger.error(
+                    "Falha ao enviar alerta para o grupo de controle (keyword='%s'): %s",
+                    keyword,
+                    e,
+                )
