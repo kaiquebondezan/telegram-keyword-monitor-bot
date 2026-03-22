@@ -90,9 +90,9 @@ def register(app: Client) -> None:
 
                 date_str = message.date.astimezone(BRT).strftime("%d/%m/%Y %H:%M") if message.date else ""
 
-                alert = f"🔔 *Keyword detectada:* {keyword}\n📍 *Chat:* {chat_name}"
+                alert = f"🔔 Palavra detectada: {keyword}\n📍 Chat: {chat_name}"
                 if sender_name:
-                    alert += f"\n👤 *De:* {sender_name}"
+                    alert += f"\n👤 De: {sender_name}"
                 if date_str:
                     alert += f"\n🕐 {date_str}"
                 await client.send_message(CONTROL_GROUP_ID, alert)
