@@ -33,9 +33,10 @@ async def main() -> None:
         logger.info("Autenticado como: %s (id=%s)", me.first_name, me.id)
         
         # Carrega todos os chats na sessão (grupos, canais, privados)
-        async for _ in app.get_dialogs():
-            pass
-        logger.info("Dialogs carregados.")
+        count = 0
+        async for _ in app.get_dialogs(limit=0):
+            count += 1
+        logger.info("Dialogs carregados: %d chats.", count)
         
         logger.info("Bot ativo. Aguardando mensagens...")
         try:
