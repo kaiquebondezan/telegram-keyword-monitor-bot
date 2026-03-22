@@ -68,12 +68,17 @@ def register(app: Client) -> None:
         )
 
         for keyword in matched:
-            alert = _format_alert(keyword, message)
             try:
-                await client.send_message(CONTROL_GROUP_ID, alert)
-            except Exception as e:
-                logger.error(
-                    "Falha ao enviar alerta para o grupo de controle (keyword='%s'): %s",
-                    keyword,
-                    e,
+                # Encaminha a mensagem original
+                await client.forward_messages(
+                    chat_id=CONTROL_GROUP_ID,
+                    from_chat_id=message.chat.id,
+                    message_ids=message.id
                 )
+                # Opcional: adiciona um comentário após o forward
+                await client.send_message(
+                    CONTROL_GROUP_ID,
+                    f"🔔 *Keyword detectada:* {keyword}"
+                )
+            except Exception as e:
+                logger.error(...)
