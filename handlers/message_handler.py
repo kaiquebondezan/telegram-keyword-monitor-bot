@@ -1,4 +1,5 @@
 import logging
+from datetime import timezone, timedelta
 
 from pyrogram import Client, filters
 from pyrogram.types import Message
@@ -30,7 +31,7 @@ def _format_alert(keyword: str, message: Message) -> str:
 
     text = message.text or message.caption or ""
     snippet = text if len(text) <= 300 else text[:300] + "…"
-    date_str = message.date.strftime("%d/%m/%Y %H:%M") if message.date else ""
+    date_str = message.date.astimezone(BRT).strftime("%d/%m/%Y %H:%M") if message.date else ""
 
     lines = [
         f"🔔 *Keyword detectada:* {keyword}",
@@ -87,7 +88,7 @@ def register(app: Client) -> None:
                 elif message.sender_chat:
                     sender_name = getattr(message.sender_chat, "title", str(message.sender_chat.id))
 
-                date_str = message.date.strftime("%d/%m/%Y %H:%M") if message.date else ""
+                date_str = message.date.astimezone(BRT).strftime("%d/%m/%Y %H:%M") if message.date else ""
 
                 alert = f"🔔 *Keyword detectada:* {keyword}\n📍 *Chat:* {chat_name}"
                 if sender_name:
