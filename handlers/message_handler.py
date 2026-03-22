@@ -8,7 +8,7 @@ import database.mongodb as db
 from config import CONTROL_GROUP_ID
 
 logger = logging.getLogger(__name__)
-
+BRT = timezone(timedelta(hours=-3))
 
 def not_control_group(client, filter_obj, message: Message) -> bool:
     return message.chat and message.chat.id != CONTROL_GROUP_ID
