@@ -41,6 +41,7 @@ def _format_alert(keyword: str, message: Message) -> str:
     if date_str:
         lines.append(f"🕐 {date_str}")
     lines.append(f"\n_{snippet}_")
+    lines.append(f"\n[Ver mensagem original]({message.link})")  # Link clicável
     return "\n".join(lines)
 
 
