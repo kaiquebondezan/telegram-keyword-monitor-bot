@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 async def main() -> None:
-    await db.connect()  # lança exceção se o Atlas estiver inacessível
+    await db.connect()
 
     app = Client(
         name="keyword_monitor",
@@ -37,6 +37,18 @@ async def main() -> None:
         async for _ in app.get_dialogs(limit=0):
             count += 1
         logger.info("Dialogs carregados: %d chats.", count)
+        
+        # NOVO: Force updates desses chats específicos (SOLUÇÃO 1)
+        logger.info("Forçando atualizações dos chats...")
+        try:
+            async for dialog in app.get_dialogs():
+                if dialog.chat.id != CONTROL_GROUP_ID:
+                    try:
+                        await app.get_chat_history(dialog.chat.id, limit=1)
+                    except:
+                        pass
+        except Exception as e:
+            logger.warning("Erro ao forçar updates: %s", e)
         
         logger.info("Bot ativo. Aguardando mensagens...")
         try:
