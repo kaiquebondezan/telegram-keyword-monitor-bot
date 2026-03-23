@@ -73,9 +73,16 @@ def register(app: Client) -> None:
             except Exception as e:
                 logger.error("Falha ao enviar alerta (keyword='%s'): %s", keyword, e)
 
-    # Handler único mais robusto para todos os tipos de chat
-    app.on_message(
-        _external_filter 
-        & ~filters.private 
-        & (filters.text | filters.caption)
-    )(process_message)
+    # Handler simples para debugar - captura TUDO de canais/grupos
+    @app.on_message(filters.incoming & (filters.text | filters.caption))
+    async def debug_all_messages(client: Client, message: Message) -> None:
+        chat_name = getattr(message.chat, "title", None) or getattr(message.chat, "username", None) or str(message.chat.id)
+        text_preview = (message.text or message.caption or "")[:50]
+        chat_id = message.chat.id
+        logger.info(f"[DEBUG GERAL] Chat ID: {chat_id}, Nome: '{chat_name}', Texto: {text_preview}, Controle: {CONTROL_GROUP_ID}")
+        
+        # Se não for grupo de controle, processa
+        if chat_id != CONTROL_GROUP_ID:
+            await process_message(client, message)
+
+    logger.info("[INIT] Message handler registrado com debug total")
