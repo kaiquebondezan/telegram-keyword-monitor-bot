@@ -1,7 +1,8 @@
 import asyncio
 import logging
 
-from pyrogram import Client, idle
+from telethon import TelegramClient, events
+from telethon.sessions import StringSession
 
 import database.mongodb as db
 import handlers.command_handler as command_handler
@@ -18,46 +19,27 @@ logger = logging.getLogger(__name__)
 async def main() -> None:
     await db.connect()
 
-    app = Client(
-        name="keyword_monitor",
+    client = TelegramClient(
+        StringSession(SESSION_STRING),
         api_id=API_ID,
         api_hash=API_HASH,
-        session_string=SESSION_STRING,
     )
 
-    command_handler.register(app)
-    message_handler.register(app)
+    await client.start()
+    me = await client.get_me()
+    logger.info("Autenticado como: %s (id=%s)", me.first_name, me.id)
 
-    async with app:
-        me = await app.get_me()
-        logger.info("Autenticado como: %s (id=%s)", me.first_name, me.id)
-        
-        # Carrega todos os chats na sessão (grupos, canais, privados)
-        count = 0
-        async for _ in app.get_dialogs(limit=0):
-            count += 1
-        logger.info("Dialogs carregados: %d chats.", count)
-        
-        # NOVO: Force updates desses chats específicos (SOLUÇÃO 1)
-        logger.info("Forçando atualizações dos chats...")
-        try:
-            async for dialog in app.get_dialogs():
-                if dialog.chat.id != CONTROL_GROUP_ID:
-                    try:
-                        await app.get_chat_history(dialog.chat.id, limit=1)
-                    except:
-                        pass
-        except Exception as e:
-            logger.warning("Erro ao forçar updates: %s", e)
-        
-        logger.info("Bot ativo. Aguardando mensagens...")
-        try:
-            await app.get_chat(CONTROL_GROUP_ID)
-            await app.send_message(CONTROL_GROUP_ID, "🟢 Bot iniciado.")
-        except Exception as e:
-            logger.warning("Não foi possível enviar mensagem de startup: %s", e)
-        await idle()
+    # Registra handlers
+    command_handler.register(client)
+    message_handler.register(client)
 
+    logger.info("Bot ativo. Aguardando mensagens...")
+    try:
+        await client.send_message(CONTROL_GROUP_ID, "🟢 Bot iniciado.")
+    except Exception as e:
+        logger.warning("Não foi possível enviar mensagem de startup: %s", e)
+
+    await client.run_until_disconnected()
     logger.info("Bot encerrado.")
 
 
