@@ -21,19 +21,26 @@ _external_filter = filters.create(not_control_group)
 def register(app: Client) -> None:
 
     async def process_message(client: Client, message: Message) -> None:
+        # DEBUG: log todas as mensagens recebidas
+        chat_name = getattr(message.chat, "title", None) or getattr(message.chat, "username", None) or str(message.chat.id)
+        text_preview = (message.text or message.caption or "")[:50]
+        logger.info(f"[DEBUG] Mensagem recebida em '{chat_name}': {text_preview}")
+        
         keywords = await db.get_keywords()
         if not keywords:
+            logger.info(f"[DEBUG] Nenhuma keyword cadastrada")
             return
 
         text = (message.text or message.caption or "").lower()
         if not text:
+            logger.info(f"[DEBUG] Mensagem vazia ou sem texto")
             return
 
         matched = [kw for kw in keywords if kw in text]
         if not matched:
+            logger.info(f"[DEBUG] Nenhuma keyword correspondida. Keywords: {keywords}, Texto: {text[:100]}")
             return
 
-        chat_name = getattr(message.chat, "title", None) or getattr(message.chat, "username", None) or str(message.chat.id)
         logger.info("Match encontrado em '%s': keywords=%s", chat_name, matched)
 
         for keyword in matched:
@@ -66,7 +73,9 @@ def register(app: Client) -> None:
             except Exception as e:
                 logger.error("Falha ao enviar alerta (keyword='%s'): %s", keyword, e)
 
-    # Grupos e privados
-    app.on_message(_external_filter & (filters.text | filters.caption))(process_message)
-    # Canais
-    app.on_message(filters.channel & (filters.text | filters.caption))(process_message)
+    # Handler único mais robusto para todos os tipos de chat
+    app.on_message(
+        _external_filter 
+        & ~filters.private 
+        & (filters.text | filters.caption)
+    )(process_message)
