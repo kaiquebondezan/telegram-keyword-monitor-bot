@@ -21,10 +21,9 @@ _external_filter = filters.create(not_control_group)
 def register(app: Client) -> None:
 
     async def process_message(client: Client, message: Message) -> None:
-        # DEBUG: log todas as mensagens recebidas
         chat_name = getattr(message.chat, "title", None) or getattr(message.chat, "username", None) or str(message.chat.id)
         text_preview = (message.text or message.caption or "")[:50]
-        logger.info(f"[DEBUG] Mensagem recebida em '{chat_name}': {text_preview}")
+        logger.info(f"[DEBUG] Processando em '{chat_name}': {text_preview}")
         
         keywords = await db.get_keywords()
         if not keywords:
@@ -73,16 +72,21 @@ def register(app: Client) -> None:
             except Exception as e:
                 logger.error("Falha ao enviar alerta (keyword='%s'): %s", keyword, e)
 
-    # Handler simples para debugar - captura TUDO de canais/grupos
-    @app.on_message(filters.incoming & (filters.text | filters.caption))
-    async def debug_all_messages(client: Client, message: Message) -> None:
+    # Captura TUDO - sem filtros
+    @app.on_message()
+    async def catch_all(client: Client, message: Message) -> None:
+        # Ignora o grupo de controle
+        if message.chat.id == CONTROL_GROUP_ID:
+            return
+            
         chat_name = getattr(message.chat, "title", None) or getattr(message.chat, "username", None) or str(message.chat.id)
-        text_preview = (message.text or message.caption or "")[:50]
-        chat_id = message.chat.id
-        logger.info(f"[DEBUG GERAL] Chat ID: {chat_id}, Nome: '{chat_name}', Texto: {text_preview}, Controle: {CONTROL_GROUP_ID}")
+        has_text = bool(message.text or message.caption)
+        msg_type = type(message).__name__
         
-        # Se não for grupo de controle, processa
-        if chat_id != CONTROL_GROUP_ID:
+        logger.info(f"[CATCH ALL] Chat: {chat_name} (ID: {message.chat.id}) | Tipo: {msg_type} | Tem texto: {has_text}")
+        
+        # Se tem texto/caption, processa
+        if has_text:
             await process_message(client, message)
 
-    logger.info("[INIT] Message handler registrado com debug total")
+    logger.info("[INIT] Message handler com catch-all ativo")
