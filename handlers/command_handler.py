@@ -1,7 +1,6 @@
 import logging
 
 from telethon import TelegramClient, events
-from telogram.types import Message
 
 import database.mongodb as db
 from config import CONTROL_GROUP_ID
