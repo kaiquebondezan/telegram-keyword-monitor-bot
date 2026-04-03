@@ -50,3 +50,15 @@ async def remove_keyword(keyword: str) -> bool:
         return True
     logger.warning("Keyword não encontrada para remoção: '%s'", keyword)
     return False
+
+
+async def get_session() -> str | None:
+    doc = await _client["telegram_keyword_bot"]["session"].find_one({"_id": "session"})
+    return doc["value"] if doc else None
+
+async def save_session(session_string: str) -> None:
+    await _client["telegram_keyword_bot"]["session"].update_one(
+        {"_id": "session"},
+        {"$set": {"value": session_string}},
+        upsert=True
+    )
