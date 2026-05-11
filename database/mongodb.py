@@ -53,12 +53,31 @@ async def remove_keyword(keyword: str) -> bool:
 
 
 async def get_session() -> str | None:
-    doc = await _client["telegram_keyword_bot"]["session"].find_one({"_id": "session"})
-    return doc["value"] if doc else None
+    """Recupera a sessão salva no MongoDB."""
+    try:
+        doc = await _client["telegram_keyword_bot"]["session"].find_one({"_id": "session"})
+        if doc:
+            logger.debug("✓ Sessão recuperada do MongoDB")
+            return doc["value"]
+        logger.warning("⚠️  Nenhuma sessão encontrada no MongoDB")
+        return None
+    except Exception as e:
+        logger.error("Erro ao recuperar sessão: %s", e)
+        return None
+
 
 async def save_session(session_string: str) -> None:
-    await _client["telegram_keyword_bot"]["session"].update_one(
-        {"_id": "session"},
-        {"$set": {"value": session_string}},
-        upsert=True
-    )
+    """Salva/atualiza a sessão no MongoDB com timestamp."""
+    try:
+        await _client["telegram_keyword_bot"]["session"].update_one(
+            {"_id": "session"},
+            {"$set": {
+                "value": session_string,
+                "updated_at": datetime.now(timezone.utc),
+                "expires_at": None  # Sessão StringSession não expira por timestamp
+            }},
+            upsert=True
+        )
+        logger.info("✓ Sessão atualizada e armazenada no MongoDB")
+    except Exception as e:
+        logger.error("❌ Erro ao salvar sessão no MongoDB: %s", e)
