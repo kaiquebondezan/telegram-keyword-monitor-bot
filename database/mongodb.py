@@ -30,12 +30,20 @@ async def get_keywords() -> list[str]:
 
 
 async def add_keyword(keyword: str) -> bool:
+    """Adiciona uma nova palavra-chave com timestamps.
+    
+    - created_at: Quando foi adicionada
+    - updated_at: Quando foi atualizada pela última vez
+    """
     keyword = keyword.lower().strip()
     try:
-        await _collection.insert_one(
-            {"keyword": keyword, "added_at": datetime.now(timezone.utc)}
-        )
-        logger.info("Keyword adicionada: '%s'", keyword)
+        now = datetime.now(timezone.utc)
+        await _collection.insert_one({
+            "keyword": keyword,
+            "created_at": now,
+            "updated_at": now
+        })
+        logger.info("Keyword adicionada: '%s' em %s", keyword, now.strftime("%d/%m/%Y %H:%M:%S"))
         return True
     except Exception as e:
         logger.warning("Keyword '%s' já existe ou erro ao inserir: %s", keyword, e)
@@ -67,17 +75,27 @@ async def get_session() -> str | None:
 
 
 async def save_session(session_string: str) -> None:
-    """Salva/atualiza a sessão no MongoDB com timestamp."""
+    """Salva/atualiza a sessão no MongoDB com timestamps.
+    
+    - created_at: Criado apenas na primeira vez (não é atualizado)
+    - updated_at: Atualizado toda vez que a sessão é salva
+    """
     try:
+        now = datetime.now(timezone.utc)
         await _client["telegram_keyword_bot"]["session"].update_one(
             {"_id": "session"},
-            {"$set": {
-                "value": session_string,
-                "updated_at": datetime.now(timezone.utc),
-                "expires_at": None  # Sessão StringSession não expira por timestamp
-            }},
+            {
+                "$set": {
+                    "value": session_string,
+                    "updated_at": now,
+                    "expires_at": None  # Sessão StringSession não expira por timestamp
+                },
+                "$setOnInsert": {
+                    "created_at": now  # Só adiciona se for novo documento
+                }
+            },
             upsert=True
         )
-        logger.info("✓ Sessão atualizada e armazenada no MongoDB")
+        logger.info("✓ Sessão atualizada em: %s", now.strftime("%d/%m/%Y %H:%M:%S"))
     except Exception as e:
         logger.error("❌ Erro ao salvar sessão no MongoDB: %s", e)
