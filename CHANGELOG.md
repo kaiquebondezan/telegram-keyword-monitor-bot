@@ -7,6 +7,19 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [1.0.1] - 2026-08-07
+
+### Fixed
+
+- **Compatibilidade de build no Railway** — corrigida a falha de instalação do Python em ambientes que usam `mise` com a verificação de GitHub artifact attestations.
+- **Configuração de ambiente para deploy** — adicionado o arquivo `mise.toml` para desativar a verificação de attestations durante a instalação do Python, evitando interrupções no redeploy.
+
+### Why this release
+
+Esta versão foi publicada para corrigir um problema de deploy introduzido por mudanças no comportamento do `mise` ao instalar o Python em ambientes de build mais recentes. O ajuste restaura a compatibilidade e permite que o projeto continue sendo publicado sem erros de instalação.
+
+---
+
 ## [1.0.0] - 2026-04-27
 
 ### Added
@@ -93,4 +106,4 @@ Este projeto segue [Conventional Commits](https://www.conventionalcommits.org/pt
 
 ---
 
-**Última atualização:** 27 de Abril de 2026
+**Última atualização:** 07 de Agosto de 2026

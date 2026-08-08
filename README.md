@@ -324,13 +324,4 @@ Este projeto está licenciado sob a **MIT License**. Veja o arquivo [LICENSE](LI
 
 Encontrou um bug? Tem uma sugestão? Abra uma **Issue** no repositório!
 
-**Autor:** [Seu Nome/Usuário]  
-**Repositório:** [github.com/seu-usuario/telegram-keyword-monitor-bot](https://github.com/seu-usuario/telegram-keyword-monitor-bot)
-
 ---
-
-<div align="center">
-
-Made with ❤️ by [Seu Nome]
-
-</div>
